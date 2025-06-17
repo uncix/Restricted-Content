@@ -1,4 +1,3 @@
-7149816130:AAGXHwA8hHaPC0hp5yxaltC9uAZ6qr_0iuo
 import logging
 import asyncio
 import re
