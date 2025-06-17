@@ -15,9 +15,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-BOT_TOKEN = "7149816130:AAGXHwA8hHaPC0hp5yxaltC9uAZ6qr_0iuo"  # Replace with your bot token from BotFather
-API_ID = "12380656"  # Replace with your API ID from my.telegram.org
-API_HASH = "d927c13beaaf5110f25c505b7c071273"  # Replace with your API Hash from my.telegram.org
+BOT_TOKEN = "7149816130:AAGXHwA8hHaPC0hp5yxaltC9uAZ6qr_0iuo"  # Replace with your bot token
+API_ID = "12380656"  # Replace with your API ID
+API_HASH = "d927c13beaaf5110f25c505b7c071273"  # Replace with your API Hash
 SESSION_NAME = "forward_bot"
 
 # Initialize Pyrogram client
@@ -179,10 +179,25 @@ async def start_command(client: Client, message: Message):
 async def main():
     """Main function to start the bot."""
     logger.info("Starting bot...")
-    await app.start()
-    logger.info("Bot is running!")
-    await asyncio.Event().wait()  # Keep bot running
-    await app.stop()
+    try:
+        # Ensure the client starts in the same event loop
+        await app.start()
+        logger.info("Bot is running!")
+        # Keep the bot running indefinitely
+        await asyncio.Event().wait()
+    except Exception as e:
+        logger.error(f"Error in main: {e}")
+    finally:
+        # Properly stop the client
+        await app.stop()
+        logger.info("Bot stopped.")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Run the main function in the default event loop
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        logger.info("Bot interrupted by user.")
+    finally:
+        loop.close()
