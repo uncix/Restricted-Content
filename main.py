@@ -47,47 +47,31 @@ async def extract_message_info(link: str):
 async def handle_media_message(message: Message, target_chat_id: int):
     """Handle media messages by downloading and re-uploading to bypass restrictions."""
     try:
-        if message.photo:
-            file = await message.download(in_memory=True)
-            return await app.send_photo(
-                chat_id=target_chat_id,
-                photo=file,
-                caption=message.caption or "",
-                parse_mode=ParseMode.MARKDOWN
-            )
-        elif message.video:
-            file = await message.download(in_memory=True)
-            return await app.send_video(
-                chat_id=target_chat_id,
-                video=file,
-                caption=message.caption or "",
-                parse_mode=ParseMode.MARKDOWN
-            )
-        elif message.document:
-            file = await message.download(in_memory=True)
-            return await app.send_document(
-                chat_id=target_chat_id,
-                document=file,
-                caption=message.caption or "",
-                parse_mode=ParseMode.MARKDOWN
-            )
-        elif message.audio:
-            file = await message.download(in_memory=True)
-            return await app.send_audio(
-                chat_id=target_chat_id,
-                audio=file,
-                caption=message.caption or "",
-                parse_mode=ParseMode.MARKDOWN
-            )
-        elif message.sticker:
-            file = await message.download(in_memory=True)
-            return await app.send_sticker(
-                chat_id=target_chat_id,
-                sticker=file
-            )
-        else:
-            logger.warning(f"Unsupported media type for message ID {message.id}")
-            return None
+        media_types = {
+            "photo": (app.send_photo, {"photo": "file"}),
+            "video": (app.send_video, {"video": "file"}),
+            "document": (app.send_document, {"document": "file"}),
+            "audio": (app.send_audio, {"audio": "file"}),
+            "sticker": (app.send_sticker, {"sticker": "file"}),
+            "animation": (app.send_animation, {"animation": "file"}),
+            "voice": (app.send_voice, {"voice": "file"})
+        }
+
+        for media_type, (send_func, params) in media_types.items():
+            if getattr(message, media_type):
+                file = await message.download(in_memory=True)
+                kwargs = {
+                    "chat_id": target_chat_id,
+                    params[list(params.keys())[0]]: file,
+                    "caption": message.caption or "",
+                    "parse_mode": ParseMode.MARKDOWN
+                }
+                if media_type != "sticker":  # Stickers don't support captions
+                    kwargs["caption"] = message.caption or ""
+                return await send_func(**kwargs)
+
+        logger.warning(f"Unsupported media type for message ID {message.id}")
+        return None
     except Exception as e:
         logger.error(f"Error handling media: {e}")
         return None
@@ -99,6 +83,16 @@ async def forward_message(source_chat_id: str, message_id: int, target_chat_id: 
         message = await app.get_messages(source_chat_id, message_id)
         if not message:
             return "Message not found or inaccessible."
+
+        # Check for empty messages
+        if message.empty:
+            logger.warning(f"Message ID {message_id} is empty")
+            return "Cannot forward empty messages."
+
+        # Check for unsupported types like polls
+        if message.poll:
+            logger.warning(f"Message ID {message_id} is a poll")
+            return "Cannot forward polls."
 
         # Check if message has protected content
         if message.has_protected_content:
